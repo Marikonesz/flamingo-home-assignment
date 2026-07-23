@@ -45,8 +45,13 @@ mvn test -Dthreads=4
 mvn test -Dretry.count=1
 ```
 
-**Debugging logs:** every line includes TMS id (`[FLA-…]`). HTTP request/response go through SLF4J; UI/API steps as `→ ...`. On UI failure: screenshot + Playwright trace (`target/traces/`). Open with:
-`npx playwright show-trace target/traces/<file>.zip`
+**Debugging logs:** every line includes TMS id (`[FLA-…]`). HTTP request/response go through SLF4J; UI/API steps as `→ ...`.
+
+On UI failure:
+- screenshot → Allure + `target/screenshots/`
+- Playwright trace zip → Allure attachment + `target/traces/` (CI artifact `playwright-traces-shard-*`)
+
+Open locally: `npx playwright show-trace target/traces/<file>.zip`
 
 ### Allure report (local)
 

@@ -1,6 +1,9 @@
 package com.flamingo.qa.helpers.reporting;
 
 import io.qameta.allure.Allure;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -12,6 +15,7 @@ import java.time.format.DateTimeFormatter;
 
 public final class AllureHelper {
 
+    private static final Logger LOG = LoggerFactory.getLogger(AllureHelper.class);
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS");
 
     private AllureHelper() {
@@ -32,8 +36,9 @@ public final class AllureHelper {
         if (file == null || !Files.isRegularFile(file)) {
             return;
         }
-        try (InputStream stream = Files.newInputStream(file)) {
-            Allure.addAttachment(name, mediaType, stream, fileExtension);
+        try {
+            byte[] bytes = Files.readAllBytes(file);
+            Allure.addAttachment(name, mediaType, new ByteArrayInputStream(bytes), fileExtension);
         } catch (IOException e) {
             attachText(name + " (attach error)", e.getMessage());
         }
@@ -43,11 +48,21 @@ public final class AllureHelper {
         try {
             Path dir = Path.of("target", "screenshots");
             Files.createDirectories(dir);
-            Path file = dir.resolve(safeFileName(testName) + "-" + LocalDateTime.now().format(TS) + ".png");
+            Path file = dir.resolve(artifactBaseName(testName) + "-" + LocalDateTime.now().format(TS) + ".png");
             Files.write(file, pngBytes);
+            LOG.info("Saved screenshot: {}", file.toAbsolutePath());
             return file;
         } catch (Exception e) {
             throw new IllegalStateException("Failed to save screenshot", e);
+        }
+    }
+
+    public static Path newTracePath(String testName) {
+        try {
+            Path dir = tracesDir();
+            return dir.resolve(artifactBaseName(testName) + "-" + LocalDateTime.now().format(TS) + ".zip");
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to prepare trace path", e);
         }
     }
 
@@ -63,5 +78,14 @@ public final class AllureHelper {
 
     public static String safeFileName(String testName) {
         return testName == null ? "test" : testName.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private static String artifactBaseName(String testName) {
+        String testId = MDC.get("testId");
+        String safeTest = safeFileName(testName);
+        if (testId == null || testId.isBlank()) {
+            return safeTest;
+        }
+        return safeFileName(testId) + "-" + safeTest;
     }
 }
