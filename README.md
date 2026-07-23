@@ -123,12 +123,13 @@ Example: `mvn test -Dgroups=FLA-UI-001`
 
 ## CI / GitHub Pages
 
-GitHub Actions workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+GitHub Actions workflow [`.github/workflows/flamingo-qa-automation.yml`](.github/workflows/flamingo-qa-automation.yml) (**Flamingo QA Automation**):
 
+- Manual run: **Actions → Flamingo QA Automation → Run workflow** (choose browser / threads / shards)
 - Splits the **entire suite** into shards (`shard.total` / `shard.index`)
 - Runs `-Dthreads` workers inside each shard
 - Uses `-Dui.browser` (default `chromium`) for all shards
-- Merges Allure results, restores previous `history/` for trends
+- Merges Allure results, **drops “Skipped by shard filter” entries**, restores previous `history/` for trends
 - Publishes to GitHub Pages:
 
   - `/allure/latest/` — latest report (trends source)

@@ -1,23 +1,31 @@
-name: CI
+name: Flamingo QA Automation
 
 on:
   push:
     branches: [master, main]
   pull_request:
+  # Actions → Flamingo QA Automation → Run workflow
   workflow_dispatch:
     inputs:
       ui_browser:
         description: "Browser for UI tests (chromium|firefox|webkit)"
         required: false
         default: chromium
+        type: choice
+        options:
+          - chromium
+          - firefox
+          - webkit
       threads:
         description: "Parallel threads inside each shard"
         required: false
         default: "2"
+        type: string
       shard_total:
-        description: "Number of suite-wide shards"
+        description: "Number of suite-wide shards (matrix is fixed to 3 jobs: indexes 0..2)"
         required: false
         default: "3"
+        type: string
 
 permissions:
   contents: write
@@ -25,7 +33,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: flamingo-qa-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -124,6 +132,29 @@ jobs:
             fi
           done
           echo "Merged $(find allure-results -type f | wc -l) result files"
+
+      - name: Drop shard-filter skips from Allure results
+        run: |
+          python3 <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("allure-results")
+          removed = 0
+          for path in root.glob("*-result.json"):
+              try:
+                  data = json.loads(path.read_text(encoding="utf-8"))
+              except Exception:
+                  continue
+              if data.get("status") != "skipped":
+                  continue
+              message = ((data.get("statusDetails") or {}).get("message") or "")
+              if "Skipped by shard filter" in message:
+                  path.unlink(missing_ok=True)
+                  removed += 1
+          print(f"Removed {removed} shard-skip result file(s)")
+          print(f"Remaining files: {sum(1 for _ in root.rglob('*') if _.is_file())}")
+          PY
 
       - name: Restore Allure history from gh-pages
         continue-on-error: true
