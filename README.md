@@ -139,7 +139,14 @@ GitHub Actions workflow [`.github/workflows/flamingo-qa-automation.yml`](.github
 
 Allure **History** tab needs at least **two successful Pages publishes**. The first run has nothing to compare; from the second run onward previous results appear (and link to archived reports).
 
-After the first successful run on `main`/`master`, enable GitHub Pages for the `gh-pages` branch.
+After the first successful run on `main`/`master`:
+
+1. **Settings → Pages → Build and deployment → Source:** **GitHub Actions** (not “Deploy from a branch”)
+2. Re-run **Flamingo QA Automation** once so `deploy-github-pages` publishes the site
+
+Until root redirect is live, open the report directly:
+
+https://marikonesz.github.io/flamingo-home-assignment/allure/latest/
 
 **Where to open the report (pick one):**
 
