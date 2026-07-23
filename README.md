@@ -129,7 +129,7 @@ GitHub Actions workflow [`.github/workflows/flamingo-qa-automation.yml`](.github
 - Splits the **entire suite** into shards (`shard.total` / `shard.index`)
 - Runs `-Dthreads` workers inside each shard
 - Uses `-Dui.browser` (default `chromium`) for all shards
-- Merges Allure results, drops leftover shard skips / duplicates, restores previous `history/` for trends
+- Merges Allure results (drops any leftover shard skips), restores previous `history/` for trends
 - Shard assignment happens at JUnit discovery (`PostDiscoveryFilter`), so foreign-shard tests never show up as skipped in Allure
 - Publishes to GitHub Pages:
 

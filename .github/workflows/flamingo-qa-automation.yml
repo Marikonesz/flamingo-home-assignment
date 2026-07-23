@@ -135,69 +135,19 @@ jobs:
 
       - name: Clean merged Allure results
         run: |
-          python3 <<'PY'
-          import json
-          from collections import defaultdict
-          from pathlib import Path
-
-          root = Path("allure-results")
-          STATUS_RANK = {
-              "passed": 0,
-              "failed": 1,
-              "broken": 2,
-              "skipped": 3,
-              "unknown": 4,
-          }
-
-          def details_text(data):
-              details = data.get("statusDetails") or {}
-              return f"{details.get('message') or ''}\n{details.get('trace') or ''}"
-
-          removed_skips = 0
-          for path in list(root.glob("*-result.json")):
-              try:
-                  data = json.loads(path.read_text(encoding="utf-8"))
-              except Exception:
-                  continue
-              text = details_text(data).lower()
-              is_shard_skip = (
-                  data.get("status") == "skipped"
-                  and ("shard filter" in text or "not in shard" in text)
-              )
-              if is_shard_skip:
-                  path.unlink(missing_ok=True)
-                  removed_skips += 1
-
-          by_key = defaultdict(list)
-          for path in root.glob("*-result.json"):
-              try:
-                  data = json.loads(path.read_text(encoding="utf-8"))
-              except Exception:
-                  continue
-              key = data.get("historyId") or data.get("fullName") or path.name
-              by_key[key].append((path, data))
-
-          removed_dupes = 0
-          for items in by_key.values():
-              if len(items) == 1:
-                  continue
-              items.sort(
-                  key=lambda item: (
-                      STATUS_RANK.get(item[1].get("status"), 99),
-                      -(item[1].get("stop") or 0),
-                  )
-              )
-              for path, _ in items[1:]:
-                  path.unlink(missing_ok=True)
-                  removed_dupes += 1
-
-          remaining = list(root.glob("*-result.json"))
-          print(f"Removed {removed_skips} shard-skip result(s), {removed_dupes} duplicate(s)")
-          print(f"Remaining test results: {len(remaining)}")
-          for path in sorted(remaining):
-              data = json.loads(path.read_text(encoding="utf-8"))
-              print(f"  {data.get('status')}: {data.get('name') or data.get('fullName')}")
-          PY
+          # PostDiscoveryFilter should already exclude foreign-shard tests.
+          # This is a cheap safety net if any skipped leftovers still appear.
+          removed=0
+          for f in allure-results/*-result.json; do
+            [ -f "$f" ] || continue
+            if grep -q '"status"[[:space:]]*:[[:space:]]*"skipped"' "$f" \
+              && grep -qiE 'shard filter|not in shard' "$f"; then
+              rm -f "$f"
+              removed=$((removed + 1))
+            fi
+          done
+          echo "Removed $removed leftover shard-skip result(s)"
+          echo "Remaining results: $(ls allure-results/*-result.json 2>/dev/null | wc -l)"
 
       - name: Write Allure executor and environment
         id: meta
@@ -260,16 +210,6 @@ jobs:
             cp -R "$restore_from"/. allure-results/history/
             echo "Restored Allure history from: $restore_from"
             ls -la allure-results/history/
-            python3 -c '
-import json
-from pathlib import Path
-p = Path("allure-results/history/history.json")
-data = json.loads(p.read_text(encoding="utf-8"))
-print(f"history.json entries: {len(data)}")
-trend = Path("allure-results/history/history-trend.json")
-if trend.exists():
-    print(f"history-trend points: {len(json.loads(trend.read_text(encoding="utf-8")))}")
-'
           else
             echo "No previous Allure history on gh-pages (first publish is expected to have empty History tab)"
             find gh-pages-tmp -maxdepth 4 -type d -name history 2>/dev/null || true
@@ -293,18 +233,6 @@ if trend.exists():
         run: |
           allure --version
           allure generate allure-results -o allure-report --clean
-          python3 -c '
-import json
-from pathlib import Path
-cases = list(Path("allure-report/data/test-cases").glob("*.json"))
-with_hist = 0
-for p in cases:
-    extra = json.loads(p.read_text(encoding="utf-8")).get("extra") or {}
-    hist = extra.get("history") or {}
-    if hist.get("items"):
-        with_hist += 1
-print(f"Test cases with History tab data: {with_hist}/{len(cases)}")
-'
 
       - name: Build Pages payload with history archive
         run: |
