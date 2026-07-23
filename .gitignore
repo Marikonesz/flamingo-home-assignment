@@ -1,0 +1,45 @@
+# Build
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Allure / reports
+allure-results/
+allure-report/
+**/allure-results/
+**/allure-report/
+
+# Screenshots / traces
+screenshots/
+test-output/
+playwright-report/
+**/trace.zip
+
+# Logs
+*.log
+logs/
+
+# Env / secrets
+.env
+.env.local
+*.pem
+
+# Maven wrapper (keep wrapper jar if added later)
+.mvn/wrapper/maven-wrapper.jar

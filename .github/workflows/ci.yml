@@ -1,0 +1,213 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      ui_browser:
+        description: "Browser for UI tests (chromium|firefox|webkit)"
+        required: false
+        default: chromium
+      threads:
+        description: "Parallel threads inside each shard"
+        required: false
+        default: "2"
+      shard_total:
+        description: "Number of suite-wide shards"
+        required: false
+        default: "3"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: tests (shard ${{ matrix.shard_index }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard_index: [0, 1, 2]
+    env:
+      UI_BROWSER: ${{ github.event.inputs.ui_browser || 'chromium' }}
+      THREADS: ${{ github.event.inputs.threads || '2' }}
+      SHARD_TOTAL: ${{ github.event.inputs.shard_total || '3' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
+          cache: maven
+
+      - name: Resolve Playwright version
+        id: playwright
+        run: |
+          VERSION=$(mvn -B -q help:evaluate -Dexpression=playwright.version -DforceStdout)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ env.UI_BROWSER }}-${{ steps.playwright.outputs.version }}
+          restore-keys: |
+            playwright-${{ runner.os }}-${{ env.UI_BROWSER }}-
+
+      - name: Install Playwright browser
+        run: |
+          mvn -B -q dependency:resolve
+          # On cache hit this is mostly a no-op for browser binaries; --with-deps still ensures OS libs.
+          mvn -B -q exec:java -Dexec.classpathScope=test \
+            -Dexec.mainClass=com.microsoft.playwright.CLI \
+            -Dexec.args="install --with-deps ${UI_BROWSER}"
+
+      - name: Run tests (shard)
+        run: |
+          mvn -B clean test \
+            -Dshard.total=$SHARD_TOTAL \
+            -Dshard.index=${{ matrix.shard_index }} \
+            -Dthreads=$THREADS \
+            -Dui.browser=$UI_BROWSER
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-shard-${{ matrix.shard_index }}
+          path: target/allure-results
+          if-no-files-found: warn
+          retention-days: 14
+
+  report:
+    name: merge-allure-and-pages
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download shard results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-shard-*
+          path: allure-shards
+          merge-multiple: false
+
+      - name: Prepare merged allure-results
+        run: |
+          mkdir -p allure-results
+          for dir in allure-shards/allure-results-shard-*; do
+            if [ -d "$dir" ]; then
+              cp -R "$dir"/. allure-results/ || true
+            fi
+          done
+          echo "Merged $(find allure-results -type f | wc -l) result files"
+
+      - name: Restore Allure history from gh-pages
+        continue-on-error: true
+        run: |
+          git fetch origin gh-pages --depth=1 || exit 0
+          git show origin/gh-pages:allure/latest/history > /dev/null 2>&1 || true
+          rm -rf gh-pages-tmp
+          git clone --branch gh-pages --single-branch --depth 1 \
+            https://github.com/${{ github.repository }}.git gh-pages-tmp || exit 0
+          if [ -d gh-pages-tmp/allure/latest/history ]; then
+            mkdir -p allure-results/history
+            cp -R gh-pages-tmp/allure/latest/history/. allure-results/history/
+            echo "Restored previous Allure history"
+          fi
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "11"
+
+      - name: Install Allure CLI
+        run: |
+          ALLURE_VERSION=2.32.0
+          curl -fsSL -o allure.tgz \
+            https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz
+          tar -xzf allure.tgz
+          echo "$PWD/allure-${ALLURE_VERSION}/bin" >> $GITHUB_PATH
+
+      - name: Generate Allure report
+        run: |
+          allure --version
+          allure generate allure-results -o allure-report --clean
+
+      - name: Build Pages payload with history archive
+        run: |
+          RUN_ID="run-${{ github.run_number }}-${GITHUB_SHA::7}"
+          mkdir -p site/allure/history/$RUN_ID
+          mkdir -p site/allure/latest
+          cp -R allure-report/. site/allure/latest/
+          cp -R allure-report/. site/allure/history/$RUN_ID/
+
+          {
+            echo "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Allure History</title>"
+            echo "<style>body{font-family:sans-serif;max-width:800px;margin:2rem auto;padding:0 1rem}"
+            echo "a{color:#0b57d0} li{margin:.4rem 0}</style></head><body>"
+            echo "<h1>Allure reports</h1>"
+            echo "<p><a href='./latest/index.html'><strong>Open latest report</strong></a></p>"
+            echo "<h2>Run history</h2><ul>"
+            if [ -d site/allure/history ]; then
+              for d in $(ls -1 site/allure/history | sort -r); do
+                echo "<li><a href='./history/$d/index.html'>$d</a></li>"
+              done
+            fi
+            # Keep previous history entries from gh-pages if present
+            if [ -d gh-pages-tmp/allure/history ]; then
+              for d in $(ls -1 gh-pages-tmp/allure/history | sort -r); do
+                if [ ! -d "site/allure/history/$d" ]; then
+                  mkdir -p "site/allure/history/$d"
+                  cp -R "gh-pages-tmp/allure/history/$d/." "site/allure/history/$d/"
+                  echo "<li><a href='./history/$d/index.html'>$d</a></li>"
+                fi
+              done
+            fi
+            echo "</ul></body></html>"
+          } > site/allure/index.html
+
+          # Rebuild index including copied older runs
+          {
+            echo "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Allure History</title>"
+            echo "<style>body{font-family:sans-serif;max-width:800px;margin:2rem auto;padding:0 1rem}"
+            echo "a{color:#0b57d0} li{margin:.4rem 0}</style></head><body>"
+            echo "<h1>Allure reports</h1>"
+            echo "<p><a href='./latest/index.html'><strong>Open latest report</strong></a></p>"
+            echo "<h2>Run history</h2><ul>"
+            for d in $(ls -1 site/allure/history | sort -r); do
+              echo "<li><a href='./history/$d/index.html'>$d</a></li>"
+            done
+            echo "</ul></body></html>"
+          } > site/allure/index.html
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report
+          retention-days: 30
+
+      - name: Publish to GitHub Pages
+        if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./flamingo-qa-reports
+          keep_files: false
+          destination_dir: .
