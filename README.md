@@ -129,18 +129,27 @@ GitHub Actions workflow [`.github/workflows/flamingo-qa-automation.yml`](.github
 - Splits the **entire suite** into shards (`shard.total` / `shard.index`)
 - Runs `-Dthreads` workers inside each shard
 - Uses `-Dui.browser` (default `chromium`) for all shards
-- Merges Allure results, **drops “Skipped by shard filter” entries**, restores previous `history/` for trends
+- Merges Allure results, drops leftover shard skips / duplicates, restores previous `history/` for trends
+- Shard assignment happens at JUnit discovery (`PostDiscoveryFilter`), so foreign-shard tests never show up as skipped in Allure
 - Publishes to GitHub Pages:
 
   - `/allure/latest/` — latest report (trends source)
-  - `/allure/history/run-<number>-<sha>/` — archived runs
+  - `/allure/history/run-<number>-<sha>/` — archived runs (History tab links here)
   - `/allure/index.html` — history index
+
+Allure **History** tab needs at least **two successful Pages publishes**. The first run has nothing to compare; from the second run onward previous results appear (and link to archived reports).
 
 After the first successful run on `main`/`master`, enable GitHub Pages for the `gh-pages` branch.
 
-Report URL pattern:
+**Where to open the report (pick one):**
 
-`https://<user>.github.io/<repo>/allure/latest/`
+1. Direct link (main):  
+   https://marikonesz.github.io/flamingo-home-assignment/allure/latest/
+2. History of runs:  
+   https://marikonesz.github.io/flamingo-home-assignment/allure/
+3. Site root (redirects to latest after next deploy):  
+   https://marikonesz.github.io/flamingo-home-assignment/
+4. Without Pages: **Actions →** run **Flamingo QA Automation** → artifact **`allure-report`** → download → open `index.html`
 
 ## What I Would Add With More Time
 

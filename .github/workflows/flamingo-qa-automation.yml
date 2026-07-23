@@ -133,41 +133,146 @@ jobs:
           done
           echo "Merged $(find allure-results -type f | wc -l) result files"
 
-      - name: Drop shard-filter skips from Allure results
+      - name: Clean merged Allure results
         run: |
           python3 <<'PY'
           import json
+          from collections import defaultdict
           from pathlib import Path
 
           root = Path("allure-results")
-          removed = 0
+          STATUS_RANK = {
+              "passed": 0,
+              "failed": 1,
+              "broken": 2,
+              "skipped": 3,
+              "unknown": 4,
+          }
+
+          def details_text(data):
+              details = data.get("statusDetails") or {}
+              return f"{details.get('message') or ''}\n{details.get('trace') or ''}"
+
+          removed_skips = 0
+          for path in list(root.glob("*-result.json")):
+              try:
+                  data = json.loads(path.read_text(encoding="utf-8"))
+              except Exception:
+                  continue
+              text = details_text(data).lower()
+              is_shard_skip = (
+                  data.get("status") == "skipped"
+                  and ("shard filter" in text or "not in shard" in text)
+              )
+              if is_shard_skip:
+                  path.unlink(missing_ok=True)
+                  removed_skips += 1
+
+          by_key = defaultdict(list)
           for path in root.glob("*-result.json"):
               try:
                   data = json.loads(path.read_text(encoding="utf-8"))
               except Exception:
                   continue
-              if data.get("status") != "skipped":
+              key = data.get("historyId") or data.get("fullName") or path.name
+              by_key[key].append((path, data))
+
+          removed_dupes = 0
+          for items in by_key.values():
+              if len(items) == 1:
                   continue
-              message = ((data.get("statusDetails") or {}).get("message") or "")
-              if "Skipped by shard filter" in message:
+              items.sort(
+                  key=lambda item: (
+                      STATUS_RANK.get(item[1].get("status"), 99),
+                      -(item[1].get("stop") or 0),
+                  )
+              )
+              for path, _ in items[1:]:
                   path.unlink(missing_ok=True)
-                  removed += 1
-          print(f"Removed {removed} shard-skip result file(s)")
-          print(f"Remaining files: {sum(1 for _ in root.rglob('*') if _.is_file())}")
+                  removed_dupes += 1
+
+          remaining = list(root.glob("*-result.json"))
+          print(f"Removed {removed_skips} shard-skip result(s), {removed_dupes} duplicate(s)")
+          print(f"Remaining test results: {len(remaining)}")
+          for path in sorted(remaining):
+              data = json.loads(path.read_text(encoding="utf-8"))
+              print(f"  {data.get('status')}: {data.get('name') or data.get('fullName')}")
           PY
+
+      - name: Write Allure executor and environment
+        id: meta
+        run: |
+          RUN_ID="run-${{ github.run_number }}-${GITHUB_SHA::7}"
+          PAGES_BASE="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+          REPORT_URL="${PAGES_BASE}/allure/history/${RUN_ID}/"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "pages_base=$PAGES_BASE" >> "$GITHUB_OUTPUT"
+          echo "report_url=$REPORT_URL" >> "$GITHUB_OUTPUT"
+
+          # reportUrl must point at this run's archive (not /latest), or History links break after overwrite
+          cat > allure-results/executor.json <<EOF
+          {
+            "name": "GitHub",
+            "type": "github",
+            "buildName": "${{ github.workflow }} #${{ github.run_number }}",
+            "buildOrder": ${{ github.run_number }},
+            "buildUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "reportName": "Flamingo QA",
+            "reportUrl": "${REPORT_URL}"
+          }
+          EOF
+          {
+            echo "Branch=${{ github.ref_name }}"
+            echo "Commit=${GITHUB_SHA::7}"
+            echo "Workflow=${{ github.workflow }}"
+            echo "Run=${{ github.run_number }}"
+            echo "Report=${REPORT_URL}"
+          } > allure-results/environment.properties
+          echo "Executor reportUrl=${REPORT_URL}"
 
       - name: Restore Allure history from gh-pages
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git fetch origin gh-pages --depth=1 || exit 0
-          git show origin/gh-pages:allure/latest/history > /dev/null 2>&1 || true
+          set -euo pipefail
           rm -rf gh-pages-tmp
           git clone --branch gh-pages --single-branch --depth 1 \
-            https://github.com/${{ github.repository }}.git gh-pages-tmp || exit 0
-          if [ -d gh-pages-tmp/allure/latest/history ]; then
+            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" \
+            gh-pages-tmp
+
+          restore_from=""
+          if [ -d gh-pages-tmp/allure/latest/history ] \
+            && [ -f gh-pages-tmp/allure/latest/history/history.json ]; then
+            restore_from="gh-pages-tmp/allure/latest/history"
+          elif [ -d gh-pages-tmp/allure/history ]; then
+            # Fallback: newest archived run that has history.json
+            for d in $(ls -1 gh-pages-tmp/allure/history | sort -r); do
+              if [ -f "gh-pages-tmp/allure/history/$d/history/history.json" ]; then
+                restore_from="gh-pages-tmp/allure/history/$d/history"
+                break
+              fi
+            done
+          fi
+
+          if [ -n "$restore_from" ]; then
             mkdir -p allure-results/history
-            cp -R gh-pages-tmp/allure/latest/history/. allure-results/history/
-            echo "Restored previous Allure history"
+            cp -R "$restore_from"/. allure-results/history/
+            echo "Restored Allure history from: $restore_from"
+            ls -la allure-results/history/
+            python3 -c '
+import json
+from pathlib import Path
+p = Path("allure-results/history/history.json")
+data = json.loads(p.read_text(encoding="utf-8"))
+print(f"history.json entries: {len(data)}")
+trend = Path("allure-results/history/history-trend.json")
+if trend.exists():
+    print(f"history-trend points: {len(json.loads(trend.read_text(encoding="utf-8")))}")
+'
+          else
+            echo "No previous Allure history on gh-pages (first publish is expected to have empty History tab)"
+            find gh-pages-tmp -maxdepth 4 -type d -name history 2>/dev/null || true
           fi
 
       - name: Set up JDK 11
@@ -188,10 +293,22 @@ jobs:
         run: |
           allure --version
           allure generate allure-results -o allure-report --clean
+          python3 -c '
+import json
+from pathlib import Path
+cases = list(Path("allure-report/data/test-cases").glob("*.json"))
+with_hist = 0
+for p in cases:
+    extra = json.loads(p.read_text(encoding="utf-8")).get("extra") or {}
+    hist = extra.get("history") or {}
+    if hist.get("items"):
+        with_hist += 1
+print(f"Test cases with History tab data: {with_hist}/{len(cases)}")
+'
 
       - name: Build Pages payload with history archive
         run: |
-          RUN_ID="run-${{ github.run_number }}-${GITHUB_SHA::7}"
+          RUN_ID="${{ steps.meta.outputs.run_id }}"
           mkdir -p site/allure/history/$RUN_ID
           mkdir -p site/allure/latest
           cp -R allure-report/. site/allure/latest/
@@ -235,6 +352,16 @@ jobs:
             done
             echo "</ul></body></html>"
           } > site/allure/index.html
+
+          # Root entry so https://…github.io/<repo>/ does not 404
+          {
+            echo "<!DOCTYPE html><html><head><meta charset='utf-8'>"
+            echo "<meta http-equiv='refresh' content='0; url=allure/latest/index.html'>"
+            echo "<title>Flamingo QA</title></head><body>"
+            echo "<p>Open the <a href='allure/latest/index.html'>latest Allure report</a>.</p>"
+            echo "<p>Or the <a href='allure/index.html'>run history index</a>.</p>"
+            echo "</body></html>"
+          } > site/index.html
 
       - name: Upload report artifact
         uses: actions/upload-artifact@v4
