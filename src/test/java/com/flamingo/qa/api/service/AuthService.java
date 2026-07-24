@@ -7,6 +7,10 @@ import com.flamingo.qa.models.api.AuthResponse;
 import io.qameta.allure.Step;
 import io.restassured.response.Response;
 
+/**
+ * Restful Booker authentication. {@link #getAdminToken()} caches one admin token per JVM
+ * so parallel tests in the same shard avoid repeated login.
+ */
 public class AuthService {
 
     private static final AuthService SHARED = new AuthService(RestClient.shared());
@@ -20,6 +24,7 @@ public class AuthService {
         this.restClient = restClient;
     }
 
+    /** Shared instance wired to {@link RestClient#shared()}. */
     public static AuthService shared() {
         return SHARED;
     }

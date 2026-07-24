@@ -299,6 +299,32 @@ jobs:
           path: allure-report
           retention-days: 30
 
+      - name: Write Allure links to job summary
+        if: always()
+        run: |
+          PAGES_BASE="${{ steps.meta.outputs.pages_base }}"
+          if [ -z "$PAGES_BASE" ]; then
+            echo "### Allure report" >> "$GITHUB_STEP_SUMMARY"
+            echo "Links unavailable (report meta step did not run). Download the \`allure-report\` artifact if present." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          LATEST="${PAGES_BASE}/allure/latest/"
+          ARCHIVE="${{ steps.meta.outputs.report_url }}"
+          HISTORY="${PAGES_BASE}/allure/"
+          {
+            echo "## Allure report"
+            echo ""
+            echo "- **Latest:** ${LATEST}"
+            if [ "${{ github.ref }}" = "refs/heads/master" ] || [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              echo "- **This run (archive):** ${ARCHIVE}"
+            else
+              echo "- **This run:** download the \`allure-report\` artifact (Pages publish only on \`main\`/\`master\`)"
+            fi
+            echo "- **History index:** ${HISTORY}"
+            echo ""
+            echo "Artifact: **allure-report** (also attached to this job)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload GitHub Pages artifact
         if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v3
@@ -333,3 +359,12 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Write Pages URL to job summary
+        run: |
+          {
+            echo "## GitHub Pages"
+            echo ""
+            echo "- **Site:** ${{ steps.deployment.outputs.page_url }}"
+            echo "- **Allure latest:** ${{ steps.deployment.outputs.page_url }}allure/latest/"
+          } >> "$GITHUB_STEP_SUMMARY"

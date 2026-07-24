@@ -2,6 +2,7 @@ package com.flamingo.qa.config;
 
 /**
  * Cross-cutting run settings (sharding / parallelism), not tied to api or ui.
+ * Shard assignment uses {@code class#methodName} so renaming {@code @DisplayName} does not reshuffle tests.
  */
 public final class ExecutionConfig {
 

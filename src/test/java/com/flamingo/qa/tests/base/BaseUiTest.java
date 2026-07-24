@@ -49,6 +49,7 @@ public abstract class BaseUiTest {
         PlaywrightManager.endTest();
     }
 
+    /** Current thread's Playwright page; requires {@link PlaywrightManager#startTest()} in {@code @BeforeEach}. */
     protected Page page() {
         return PlaywrightManager.page();
     }

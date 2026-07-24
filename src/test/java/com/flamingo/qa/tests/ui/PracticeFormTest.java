@@ -16,7 +16,7 @@ import java.nio.file.Paths;
 import java.util.Objects;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
 @Epic("UI")
 @Feature("DemoQA Practice Form")
@@ -43,16 +43,18 @@ class PracticeFormTest extends BaseUiTest {
                 .selectStateAndCity("NCR", "Delhi")
                 .submit();
 
-        assertThat(modal.studentName()).isEqualTo(firstName + " " + lastName);
-        assertThat(modal.studentEmail()).isEqualTo(email);
-        assertThat(modal.gender()).isEqualTo("Female");
-        assertThat(modal.mobile()).isEqualTo(mobile);
-        assertThat(modal.dateOfBirth()).isEqualTo("15 June,1990");
-        assertThat(modal.subjects()).contains("Maths");
-        assertThat(modal.hobbies()).contains("Reading");
-        assertThat(modal.picture()).isEqualTo("sample-upload.txt");
-        assertThat(modal.address()).isEqualTo("221B Baker Street");
-        assertThat(modal.stateAndCity()).isEqualTo("NCR Delhi");
+        assertSoftly(softly -> {
+            softly.assertThat(modal.studentName()).isEqualTo(firstName + " " + lastName);
+            softly.assertThat(modal.studentEmail()).isEqualTo(email);
+            softly.assertThat(modal.gender()).isEqualTo("Female");
+            softly.assertThat(modal.mobile()).isEqualTo(mobile);
+            softly.assertThat(modal.dateOfBirth()).isEqualTo("15 June,1990");
+            softly.assertThat(modal.subjects()).contains("Maths");
+            softly.assertThat(modal.hobbies()).contains("Reading");
+            softly.assertThat(modal.picture()).isEqualTo("sample-upload.txt");
+            softly.assertThat(modal.address()).isEqualTo("221B Baker Street");
+            softly.assertThat(modal.stateAndCity()).isEqualTo("NCR Delhi");
+        });
     }
 
     @Test
@@ -69,10 +71,38 @@ class PracticeFormTest extends BaseUiTest {
                 .selectStateAndCity("Haryana", "Karnal")
                 .submit();
 
-        assertThat(modal.studentName()).isEqualTo("Alan Turing");
-        assertThat(modal.gender()).isEqualTo("Male");
-        assertThat(modal.dateOfBirth()).isEqualTo("23 June,1912");
-        assertThat(modal.stateAndCity()).isEqualTo("Haryana Karnal");
+        assertSoftly(softly -> {
+            softly.assertThat(modal.studentName()).isEqualTo("Alan Turing");
+            softly.assertThat(modal.gender()).isEqualTo("Male");
+            softly.assertThat(modal.dateOfBirth()).isEqualTo("23 June,1912");
+            softly.assertThat(modal.stateAndCity()).isEqualTo("Haryana Karnal");
+        });
+    }
+
+    @Test
+    @Tag("FLA-UI-003")
+    @TmsLink("FLA-UI-003")
+    @DisplayName("Empty required fields keep the form from submitting")
+    void shouldNotSubmitWhenRequiredFieldsAreEmpty() {
+        new PracticeFormPage(page())
+                .open()
+                .clickSubmit()
+                .assertSuccessModalNotShown()
+                .assertRequiredTextFieldsInvalid();
+    }
+
+    @Test
+    @Tag("FLA-UI-004")
+    @TmsLink("FLA-UI-004")
+    @DisplayName("Invalid email and short mobile keep the form from submitting")
+    void shouldNotSubmitWithInvalidEmailAndMobile() {
+        new PracticeFormPage(page())
+                .open()
+                .fillPersonalDetails("Grace", "Hopper", "not-an-email", "Female", "12345")
+                .clickSubmit()
+                .assertSuccessModalNotShown()
+                .assertEmailInvalid()
+                .assertMobileInvalid();
     }
 
     private static Path sampleUploadFile() {

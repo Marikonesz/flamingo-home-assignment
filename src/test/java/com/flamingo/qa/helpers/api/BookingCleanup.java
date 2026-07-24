@@ -20,10 +20,12 @@ public final class BookingCleanup {
         this.bookingService = bookingService;
     }
 
+    /** Registers a booking id for LIFO deletion in {@link #cleanup()}. */
     public void track(int bookingId) {
         bookingIds.push(bookingId);
     }
 
+    /** Deletes tracked bookings in reverse creation order; failures are ignored (best-effort). */
     public void cleanup() {
         String token = null;
         while (!bookingIds.isEmpty()) {

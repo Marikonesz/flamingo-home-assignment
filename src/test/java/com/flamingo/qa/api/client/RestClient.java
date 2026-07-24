@@ -28,6 +28,7 @@ public class RestClient {
         this.baseSpec = builder.build();
     }
 
+    /** One client per JVM (shard); thread-safe because each call builds an isolated request. */
     public static RestClient shared() {
         return SHARED;
     }
@@ -53,6 +54,7 @@ public class RestClient {
                 .response();
     }
 
+    /** Authenticated update; Restful Booker expects the token in a {@code Cookie} header. */
     public Response put(String path, Object body, String token) {
         return RestAssured.given()
                 .spec(baseSpec)
@@ -65,6 +67,7 @@ public class RestClient {
                 .response();
     }
 
+    /** Authenticated delete; token is sent as {@code Cookie: token=...}. */
     public Response delete(String path, String token) {
         return RestAssured.given()
                 .spec(baseSpec)

@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Restful Booker booking resource (request and response body). */
 @Data
 @Builder
 @NoArgsConstructor

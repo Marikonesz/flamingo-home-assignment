@@ -7,6 +7,9 @@ import com.flamingo.qa.models.api.CreateBookingResponse;
 import io.qameta.allure.Step;
 import io.restassured.response.Response;
 
+/**
+ * Restful Booker booking CRUD. Happy-path methods assert HTTP 200 before returning bodies.
+ */
 public class BookingService {
 
     private static final BookingService SHARED = new BookingService(RestClient.shared());
@@ -17,6 +20,7 @@ public class BookingService {
         this.restClient = restClient;
     }
 
+    /** Shared instance wired to {@link RestClient#shared()}. */
     public static BookingService shared() {
         return SHARED;
     }
@@ -29,6 +33,7 @@ public class BookingService {
         return response.as(CreateBookingResponse.class);
     }
 
+    /** Raw GET for status/body assertions without enforcing 200. */
     @Step("Get booking response by id={bookingId}")
     public Response getBookingResponse(int bookingId) {
         TestLog.step("API Get booking response", bookingId);

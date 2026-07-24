@@ -2,6 +2,7 @@ package com.flamingo.qa.config.api;
 
 import com.flamingo.qa.config.ConfigProperties;
 
+/** REST and GraphQL base URLs resolved via {@link com.flamingo.qa.config.ConfigProperties}. */
 public final class ApiConfig {
 
     private ApiConfig() {

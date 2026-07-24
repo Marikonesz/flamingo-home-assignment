@@ -6,6 +6,7 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.Tracing;
+import com.microsoft.playwright.assertions.PlaywrightAssertions;
 
 import java.nio.file.Path;
 
@@ -38,8 +39,9 @@ public final class PlaywrightManager {
 
         BrowserContext context = BROWSER.get().newContext(new Browser.NewContextOptions()
                 .setViewportSize(1440, 900));
-        context.setDefaultTimeout(UiConfig.defaultTimeoutMs());
-
+        long timeoutMs = UiConfig.defaultTimeoutMs();
+        context.setDefaultTimeout(timeoutMs);
+        PlaywrightAssertions.setDefaultAssertionTimeout(timeoutMs);
         // Reduce DemoQA flakiness from third-party ads/analytics.
         context.route("**/*", route -> {
             String url = route.request().url();

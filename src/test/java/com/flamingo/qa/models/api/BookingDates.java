@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Check-in/out dates nested under {@link Booking#bookingdates}. */
 @Data
 @Builder
 @NoArgsConstructor

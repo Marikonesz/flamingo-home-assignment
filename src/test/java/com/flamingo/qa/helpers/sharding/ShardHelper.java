@@ -22,6 +22,7 @@ public final class ShardHelper {
         return Math.floorMod(stableHash(testId), shardTotal) == shardIndex;
     }
 
+    /** CRC32 over UTF-8 bytes — stable across JVMs for deterministic shard assignment. */
     public static int stableHash(String value) {
         CRC32 crc = new CRC32();
         crc.update(value.getBytes(StandardCharsets.UTF_8));

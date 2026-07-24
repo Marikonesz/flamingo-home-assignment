@@ -12,6 +12,10 @@ import java.nio.file.Path;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
+/**
+ * Page object for the DemoQA Practice Form. Prefers option clicks over Enter where
+ * keyboard submit would accidentally post the whole form.
+ */
 public class PracticeFormPage extends BasePage {
 
     private static final String PATH = "/automation-practice-form";
@@ -90,8 +94,13 @@ public class PracticeFormPage extends BasePage {
     @Step("Add subject: {subject}")
     public PracticeFormPage addSubject(String subject) {
         TestLog.step("Add subject", subject);
+        subjectsInput.click();
         subjectsInput.fill(subject);
-        subjectsInput.press("Enter");
+        // Prefer option click over Enter — Enter can submit the whole form on DemoQA.
+        Locator option = page.locator(".subjects-auto-complete__option").filter(
+                new Locator.FilterOptions().setHasText(subject)).first();
+        assertThat(option).isVisible();
+        option.click();
         return this;
     }
 
@@ -132,8 +141,51 @@ public class PracticeFormPage extends BasePage {
     @Step("Submit practice form")
     public FormSuccessModal submit() {
         TestLog.step("Submit practice form");
-        submitButton.click();
+        clickSubmit();
         return new FormSuccessModal(page).waitUntilVisible();
+    }
+
+    @Step("Click Submit without expecting success modal")
+    public PracticeFormPage clickSubmit() {
+        TestLog.step("Click Submit");
+        submitButton.click();
+        return this;
+    }
+
+    @Step("Assert success modal did not appear")
+    public PracticeFormPage assertSuccessModalNotShown() {
+        new FormSuccessModal(page).assertNotVisible();
+        return this;
+    }
+
+    @Step("Assert required text fields are invalid")
+    public PracticeFormPage assertRequiredTextFieldsInvalid() {
+        TestLog.step("Assert required text fields are invalid");
+        assertInvalid(firstNameInput, "firstName");
+        assertInvalid(lastNameInput, "lastName");
+        assertInvalid(mobileInput, "mobile");
+        return this;
+    }
+
+    @Step("Assert email field is invalid")
+    public PracticeFormPage assertEmailInvalid() {
+        TestLog.step("Assert email field is invalid");
+        assertInvalid(emailInput, "email");
+        return this;
+    }
+
+    @Step("Assert mobile field is invalid")
+    public PracticeFormPage assertMobileInvalid() {
+        TestLog.step("Assert mobile field is invalid");
+        assertInvalid(mobileInput, "mobile");
+        return this;
+    }
+
+    private static void assertInvalid(Locator field, String name) {
+        Boolean valid = (Boolean) field.evaluate("el => el.validity.valid");
+        if (Boolean.TRUE.equals(valid)) {
+            throw new AssertionError("Expected field '" + name + "' to be invalid after submit");
+        }
     }
 
     private Locator genderOption(String gender) {

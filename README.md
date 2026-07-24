@@ -1,20 +1,15 @@
 # QA Automation Test Suite
 
-Automated API (REST + GraphQL) and UI tests for the Flamingo QA home assignment.
+REST (Restful Booker) + GraphQL (Hygraph Video) + UI (DemoQA Practice Form) on JUnit 5, Rest Assured, Playwright, AssertJ, Allure.
 
 ## Prerequisites
 
 - Java 11+
 - Maven 3.6+
-- Chrome/Chromium is the default UI browser (Firefox and WebKit also supported via Playwright)
-
-Install Playwright browsers once:
+- Chrome / Chromium browser (Firefox and WebKit also supported via Playwright)
 
 ```bash
 mvn -q exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install chromium"
-# optional:
-# mvn -q exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install firefox"
-# mvn -q exec:java -Dexec.mainClass=com.microsoft.playwright.CLI -Dexec.args="install webkit"
 ```
 
 ## How to Run
@@ -29,138 +24,71 @@ mvn test -Dgroups=api
 # Run only UI tests
 mvn test -Dgroups=ui
 
-# Choose browser (default: chromium)
+# Optional
 mvn test -Dgroups=ui -Dui.browser=firefox
-mvn test -Dgroups=ui -Dui.browser=webkit
-
-# Suite-wide sharding (entire suite split across N JVMs)
-mvn test -Dshard.total=3 -Dshard.index=0
-mvn test -Dshard.total=3 -Dshard.index=1
-mvn test -Dshard.total=3 -Dshard.index=2
-
-# Parallel threads inside one shard/JVM (default: 2)
 mvn test -Dthreads=4
-
-# Re-run failed tests once (Surefire; like Playwright Test retries — default 1)
+mvn test -Dshard.total=3 -Dshard.index=0
 mvn test -Dretry.count=1
+mvn test -Dgroups=FLA-UI-001
 ```
 
-**Debugging logs:** every line includes TMS id (`[FLA-…]`). HTTP request/response go through SLF4J; UI/API steps as `→ ...`.
-
-On UI failure:
-- screenshot → Allure + `target/screenshots/`
-- Playwright trace zip → Allure attachment + `target/traces/` (CI artifact `playwright-traces-shard-*`)
-
-Open locally: `npx playwright show-trace target/traces/<file>.zip`
-
-### Allure report (local)
+Logs include TMS id (`[FLA-…]`). On UI failure: screenshot + Playwright trace → Allure and `target/screenshots|traces/`.
 
 ```bash
-mvn clean test
 mvn allure:serve
-# or
-mvn allure:report
-open target/site/allure-maven-plugin/index.html
+# or: mvn allure:report && open target/site/allure-maven-plugin/index.html
+npx playwright show-trace target/traces/<file>.zip
 ```
 
 ## Architecture
 
-Layers first; `models` hold descriptive objects only (pages, components, request/response):
-
 ```
-config/
-  api/           # ApiConfig
-  ui/            # UiConfig, BrowserType
-  ConfigProperties, ExecutionConfig
-api/
-  client/        # shared RestClient, GraphQlClient (one per JVM/shard)
-  service/       # AuthService (cached token), BookingService, MovieGraphQlService
-browser/         # BrowserFactory, PlaywrightManager (reuse browser, fresh context/test)
-models/
-  api/           # request/response POJOs
-  ui/
-    page/        # Page Objects (PracticeFormPage, BasePage)
-    component/   # FormSuccessModal
-helpers/
-  api/           # JsonHelper
-  reporting/     # AllureHelper
-  sharding/      # suite-wide shard filter (@Sharded)
-tests/
-  base/          # BaseApiTest, BaseBookingApiTest (booking cleanup), BaseUiTest
-  api/rest|graphql
-  ui/
+config/          # ApiConfig, UiConfig, ExecutionConfig
+api/client|service/
+browser/         # BrowserFactory, PlaywrightManager (browser reuse, fresh context/test)
+models/api|ui/   # POJOs, Page Objects, components
+helpers/         # JSON, HTTP logs, booking cleanup, sharding, Allure
+tests/base|api|ui/
 ```
 
-Tests extend base classes and call services/pages — not raw drivers.
+Tests call services/pages via `BaseApiTest` / `BaseUiTest` — not raw Rest Assured / Playwright.
 
 ## Test Strategy
 
-- **REST (Restful Booker):** self-contained auth + CRUD; AssertJ on payloads; DELETE expects HTTP 201.
-- **GraphQL (Hygraph Video):** pagination/variables, single entity by id, fragments + nested `publishedBy`, plus negative cases (invalid id, malformed query, unknown field).
-- **UI (DemoQA Practice Form):** POM for form fill, file upload, date picker, state/city dropdowns, submit + success modal; screenshot + Playwright trace on failure; Surefire re-runs failed tests (`-Dretry.count`).
-- Prioritized maintainable architecture and meaningful assertions over raw test count.
+Prioritized framework architecture and maintainable scenarios over raw test count.
 
-### Test case IDs (TMS)
+- **REST:** self-contained auth + CRUD with AssertJ on payloads; DELETE expects HTTP 201; unique data + `@AfterEach` cleanup.
+- **GraphQL (Video):** pagination/variables, entity by id, fragment + nested `publishedBy`; negatives for invalid id, malformed query, unknown field.
+- **UI (Option A — Practice Form):** POM covering fill, file upload, date picker, dropdowns, success modal; plus validation negatives (empty required, invalid email/mobile).
+- **Stability:** Playwright auto-wait + expect timeouts; AssertJ soft assertions for multi-field checks; screenshots/traces on UI failure; Surefire retries (`-Dretry.count`).
 
-Each test has a unique id via JUnit `@Tag` + Allure `@TmsLink` (same value):
-
-| ID | Area |
-|----|------|
-| `FLA-REST-001` … `004` | Restful Booker auth/CRUD |
-| `FLA-GQL-001` … `007` | Hygraph GraphQL |
-| `FLA-UI-001` … `002` | Practice Form |
-
-Example: `mvn test -Dgroups=FLA-UI-001`
+TMS ids: `FLA-REST-001…004`, `FLA-GQL-001…007`, `FLA-UI-001…004` (`@Tag` + `@TmsLink`).
 
 ## Challenges & Solutions
 
-- Restful Booker resets data periodically → unique payloads + cleanup in `@AfterEach`.
-- Hygraph returns HTTP 400 for parse/validation errors (not always 200) → assert status and `errors`/`data` shape.
-- DemoQA ads can intercept clicks → PlaywrightManager blocks known ad domains.
-- Practice form uses custom widgets (react-datepicker, react-select) → interact via native select options / keyboard Enter rather than brittle XPaths.
+- Restful Booker resets data periodically → unique payloads + booking cleanup in `@AfterEach`.
+- Hygraph may return HTTP 400 for parse/validation errors (not always 200) → assert status and `errors`/`data` shape.
+- DemoQA ads intercept clicks → block known ad domains in `PlaywrightManager`.
+- Subjects field: Enter can submit the whole form → select autocomplete option by click.
 - Parallel workers need isolated UI sessions → reuse Browser per thread, new Context/Page per test.
-- Shared stateless API clients per shard; admin token cached after first auth.
+- Sharded CI polluted Allure with skips → exclude foreign-shard tests at JUnit discovery (`PostDiscoveryFilter`).
 
-## CI / GitHub Pages
+## CI / Allure Pages
 
-GitHub Actions workflow [`.github/workflows/flamingo-qa-automation.yml`](.github/workflows/flamingo-qa-automation.yml) (**Flamingo QA Automation**):
+Workflow: **Actions → Flamingo QA Automation** (browser / threads / shards).
 
-- Manual run: **Actions → Flamingo QA Automation → Run workflow** (choose browser / threads / shards)
-- Splits the **entire suite** into shards (`shard.total` / `shard.index`)
-- Runs `-Dthreads` workers inside each shard
-- Uses `-Dui.browser` (default `chromium`) for all shards
-- Merges Allure results (drops any leftover shard skips), restores previous `history/` for trends
-- Shard assignment happens at JUnit discovery (`PostDiscoveryFilter`), so foreign-shard tests never show up as skipped in Allure
-- Publishes to GitHub Pages:
+- Suite-wide shards; merge Allure → GitHub Pages
+- Job **Summary** lists Allure URLs; artifact `allure-report` always uploaded
 
-  - `/allure/latest/` — latest report (trends source)
-  - `/allure/history/run-<number>-<sha>/` — archived runs (History tab links here)
-  - `/allure/index.html` — history index
+**Report:** https://marikonesz.github.io/flamingo-home-assignment/allure/latest/  
+History: `/allure/` · archives: `/allure/history/run-<n>-<sha>/` · root redirects to latest.
 
-Allure **History** tab needs at least **two successful Pages publishes**. The first run has nothing to compare; from the second run onward previous results appear (and link to archived reports).
-
-After the first successful run on `main`/`master`:
-
-1. **Settings → Pages → Build and deployment → Source:** **GitHub Actions** (not “Deploy from a branch”)
-2. Re-run **Flamingo QA Automation** once so `deploy-github-pages` publishes the site
-
-Until root redirect is live, open the report directly:
-
-https://marikonesz.github.io/flamingo-home-assignment/allure/latest/
-
-**Where to open the report (pick one):**
-
-1. Direct link (main):  
-   https://marikonesz.github.io/flamingo-home-assignment/allure/latest/
-2. History of runs:  
-   https://marikonesz.github.io/flamingo-home-assignment/allure/
-3. Site root (redirects to latest after next deploy):  
-   https://marikonesz.github.io/flamingo-home-assignment/
-4. Without Pages: **Actions →** run **Flamingo QA Automation** → artifact **`allure-report`** → download → open `index.html`
+Pages source: **Settings → Pages → GitHub Actions**. History tab needs ≥2 publishes.
 
 ## What I Would Add With More Time
 
-- Contract tests / OpenAPI validation for Restful Booker
-- Soft assertions and richer Allure categories
+- `@ParameterizedTest` matrix for GraphQL negatives / UI validation
+- Richer Allure categories (product vs infra failures)
+- Contract / OpenAPI checks for Restful Booker
 - Visual regression for Practice Form
-- Data-driven negative GraphQL matrix
+- Optional Web Tables suite (assignment Option B) alongside the form

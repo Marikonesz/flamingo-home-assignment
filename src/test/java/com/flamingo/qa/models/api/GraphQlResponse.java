@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+/** Parsed GraphQL response; {@link com.flamingo.qa.api.client.GraphQlClient} also sets {@link #statusCode}. */
 @Data
 @Builder
 @NoArgsConstructor

@@ -6,6 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+/**
+ * Shared Jackson mapper for API payloads: ISO-8601 dates, ignores unknown JSON fields.
+ */
 public final class JsonHelper {
 
     private static final ObjectMapper MAPPER = new ObjectMapper()

@@ -8,11 +8,15 @@ import com.microsoft.playwright.Playwright;
 
 import java.util.List;
 
+/**
+ * Launches Playwright browsers from {@link UiConfig}. Chromium gets CI-friendly launch flags.
+ */
 public final class BrowserFactory {
 
     private BrowserFactory() {
     }
 
+    /** Uses {@link UiConfig#browser()} and {@link UiConfig#headless()}. */
     public static Browser launch(Playwright playwright) {
         return launch(playwright, UiConfig.browser(), UiConfig.headless());
     }

@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Token returned by the Restful Booker auth endpoint. */
 @Data
 @Builder
 @NoArgsConstructor

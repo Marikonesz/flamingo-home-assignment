@@ -30,6 +30,13 @@ public class FormSuccessModal {
         return this;
     }
 
+    @Step("Assert success modal is not shown")
+    public FormSuccessModal assertNotVisible() {
+        TestLog.step("Assert success modal is not shown");
+        assertThat(dialog).isHidden();
+        return this;
+    }
+
     public String studentName() {
         return valueFor("Student Name");
     }

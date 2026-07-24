@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Response from POST {@code /booking}, including the server-assigned id. */
 @Data
 @Builder
 @NoArgsConstructor

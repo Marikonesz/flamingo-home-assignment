@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.Map;
 
+/** Standard GraphQL POST envelope ({@code query}, optional {@code variables}). */
 @Data
 @Builder
 @NoArgsConstructor

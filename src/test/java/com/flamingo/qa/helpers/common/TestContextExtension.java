@@ -6,7 +6,8 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.slf4j.MDC;
 
 /**
- * Puts unique TMS test id into MDC so every log line is attributable to a test.
+ * Puts a unique test id into SLF4J MDC so HTTP and step logs correlate with a test run.
+ * Prefers the first {@code FLA-*} JUnit tag; falls back to the test method name.
  */
 public class TestContextExtension implements BeforeEachCallback, AfterEachCallback {
 

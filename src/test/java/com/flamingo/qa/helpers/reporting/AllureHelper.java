@@ -13,6 +13,10 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * Attaches failure artifacts to Allure and writes screenshots/traces under {@code target/}.
+ * Disk file names include MDC test id when {@link com.flamingo.qa.helpers.common.TestContextExtension} is active.
+ */
 public final class AllureHelper {
 
     private static final Logger LOG = LoggerFactory.getLogger(AllureHelper.class);

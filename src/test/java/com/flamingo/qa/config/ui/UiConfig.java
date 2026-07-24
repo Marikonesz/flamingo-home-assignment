@@ -2,6 +2,7 @@ package com.flamingo.qa.config.ui;
 
 import com.flamingo.qa.config.ConfigProperties;
 
+/** DemoQA UI settings: base URL, browser, headless mode, and default Playwright timeout. */
 public final class UiConfig {
 
     private UiConfig() {

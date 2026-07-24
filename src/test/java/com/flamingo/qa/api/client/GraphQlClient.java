@@ -31,6 +31,7 @@ public class GraphQlClient {
         this.baseSpec = builder.build();
     }
 
+    /** One client per JVM (shard); thread-safe because each call builds an isolated request. */
     public static GraphQlClient shared() {
         return SHARED;
     }
@@ -39,6 +40,7 @@ public class GraphQlClient {
         return execute(query, null);
     }
 
+    /** Posts the query envelope and attaches the HTTP status to the parsed response. */
     public GraphQlResponse execute(String query, Map<String, Object> variables) {
         GraphQlRequest request = GraphQlRequest.builder()
                 .query(query)

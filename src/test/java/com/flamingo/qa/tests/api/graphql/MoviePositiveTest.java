@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
 @Epic("API")
 @Feature("Hygraph Video GraphQL — positive")
@@ -25,11 +26,14 @@ class MoviePositiveTest extends BaseApiTest {
 
         assertThat(response.getStatusCode()).isEqualTo(200);
         assertThat(response.getErrors()).isNullOrEmpty();
+
         JsonNode movies = response.getData().get("movies");
-        assertThat(movies.isArray()).isTrue();
-        assertThat(movies.size()).isBetween(1, 2);
-        assertThat(movies.get(0).get("id").asText()).isNotBlank();
-        assertThat(movies.get(0).get("title").asText()).isNotBlank();
+        assertSoftly(softly -> {
+            softly.assertThat(movies.isArray()).isTrue();
+            softly.assertThat(movies.size()).isBetween(1, 2);
+            softly.assertThat(movies.get(0).get("id").asText()).isNotBlank();
+            softly.assertThat(movies.get(0).get("title").asText()).isNotBlank();
+        });
     }
 
     @Test
@@ -44,8 +48,10 @@ class MoviePositiveTest extends BaseApiTest {
 
         assertThat(response.getStatusCode()).isEqualTo(200);
         assertThat(response.getErrors()).isNullOrEmpty();
-        assertThat(response.getData().get("movie").get("id").asText()).isEqualTo(id);
-        assertThat(response.getData().get("movie").get("title").asText()).isNotBlank();
+        assertSoftly(softly -> {
+            softly.assertThat(response.getData().get("movie").get("id").asText()).isEqualTo(id);
+            softly.assertThat(response.getData().get("movie").get("title").asText()).isNotBlank();
+        });
     }
 
     @Test
@@ -58,8 +64,10 @@ class MoviePositiveTest extends BaseApiTest {
         assertThat(response.getStatusCode()).isEqualTo(200);
         assertThat(response.getErrors()).isNullOrEmpty();
         JsonNode movie = response.getData().get("movies").get(0);
-        assertThat(movie.get("title").asText()).isNotBlank();
-        assertThat(movie.get("publishedBy").get("name").asText()).isNotBlank();
+        assertSoftly(softly -> {
+            softly.assertThat(movie.get("title").asText()).isNotBlank();
+            softly.assertThat(movie.get("publishedBy").get("name").asText()).isNotBlank();
+        });
     }
 
     @Test
@@ -72,11 +80,13 @@ class MoviePositiveTest extends BaseApiTest {
 
         assertThat(one.getStatusCode()).isEqualTo(200);
         assertThat(two.getStatusCode()).isEqualTo(200);
-        assertThat(one.getData().get("movies").size()).isEqualTo(1);
-        assertThat(two.getData().get("movies").size()).isGreaterThanOrEqualTo(1);
-        assertThat(two.getData().get("movies").size()).isLessThanOrEqualTo(2);
-        assertThat(two.getData().get("movies").size())
-                .as("Increasing $first via variables should allow a larger page")
-                .isGreaterThanOrEqualTo(one.getData().get("movies").size());
+        assertSoftly(softly -> {
+            softly.assertThat(one.getData().get("movies").size()).isEqualTo(1);
+            softly.assertThat(two.getData().get("movies").size()).isGreaterThanOrEqualTo(1);
+            softly.assertThat(two.getData().get("movies").size()).isLessThanOrEqualTo(2);
+            softly.assertThat(two.getData().get("movies").size())
+                    .as("Increasing $first via variables should allow a larger page")
+                    .isGreaterThanOrEqualTo(one.getData().get("movies").size());
+        });
     }
 }

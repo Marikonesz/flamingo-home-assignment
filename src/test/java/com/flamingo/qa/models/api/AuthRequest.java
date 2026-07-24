@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/** Request body for POST {@code /auth}. */
 @Data
 @Builder
 @NoArgsConstructor

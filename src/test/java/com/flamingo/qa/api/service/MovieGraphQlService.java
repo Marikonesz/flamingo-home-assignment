@@ -8,6 +8,9 @@ import io.qameta.allure.Step;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Predefined movie GraphQL operations for positive and negative API coverage.
+ */
 public class MovieGraphQlService {
 
     private static final MovieGraphQlService SHARED = new MovieGraphQlService(GraphQlClient.shared());
@@ -48,6 +51,7 @@ public class MovieGraphQlService {
         this.graphQlClient = graphQlClient;
     }
 
+    /** Shared instance wired to {@link GraphQlClient#shared()}. */
     public static MovieGraphQlService shared() {
         return SHARED;
     }
