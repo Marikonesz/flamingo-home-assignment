@@ -1,0 +1,31 @@
+<div>POST to https://us-east-1-shared-usea1-02.cdn.hygraph.com/content/clpvcopq3aavs01usft1idkgj/master</div>
+
+    <h4>Body</h4>
+    <div>
+    <pre class="preformated-text">
+{
+    &quot;query&quot;: &quot;fragment MovieCore on Movie {\n  id\n  title\n  publishedBy {\n    name\n  }\n}\nquery MoviesWithPublisher($first: Int!) {\n  movies(first: $first) {\n    ...MovieCore\n  }\n}&quot;,
+    &quot;variables&quot;: {
+        &quot;first&quot;: 1
+    }
+}    </pre>
+    </div>
+
+    <h4>Headers</h4>
+    <div>
+            <div>Accept: application/json</div>
+            <div>Content-Type: application/json</div>
+    </div>
+
+
+
+    <h4>Curl</h4>
+    <div>
+        curl -v -X POST &#39;https://us-east-1-shared-usea1-02.cdn.hygraph.com/content/clpvcopq3aavs01usft1idkgj/master&#39; -H &#39;Accept: application/json&#39; -H &#39;Content-Type: application/json&#39; -d &#39;{
+    &quot;query&quot;: &quot;fragment MovieCore on Movie {\n  id\n  title\n  publishedBy {\n    name\n  }\n}\nquery MoviesWithPublisher($first: Int!) {\n  movies(first: $first) {\n    ...MovieCore\n  }\n}&quot;,
+    &quot;variables&quot;: {
+        &quot;first&quot;: 1
+    }
+}&#39;
+    </div>
+
